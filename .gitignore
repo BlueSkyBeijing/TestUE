@@ -1,0 +1,9 @@
+/Intermediate
+/Content/Collections
+/Content/Developers
+/DerivedDataCache
+/*.gitignore
+/Saved
+/.vs
+/Binaries
+/*.sln
