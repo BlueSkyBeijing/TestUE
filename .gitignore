@@ -7,3 +7,5 @@
 /.vs
 /Binaries
 /*.sln
+/Plugins/ObjectExporter/Intermediate
+/Plugins/ObjectExporter/Binaries

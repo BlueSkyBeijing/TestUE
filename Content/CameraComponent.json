@@ -1,0 +1,20 @@
+{
+	"FileVersion": 1,
+	"Camera":
+	{
+		"Location":
+		{
+			"x": 3550,
+			"y": -720,
+			"z": 20
+		},
+		"Rotation":
+		{
+			"roll": 0,
+			"yaw": 0,
+			"pitch": 0
+		},
+		"FOV": 90,
+		"AspectRatio": 1.7777780294418335
+	}
+}
