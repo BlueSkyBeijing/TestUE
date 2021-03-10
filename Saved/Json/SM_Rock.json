@@ -2,6 +2,7 @@
 	"FileVersion": 1,
 	"MeshName": "SM_Rock",
 	"VertexFormat": [],
+	"LODCount": 3,
 	"LODs": [
 		{
 			"LOD": 0,

@@ -25,13 +25,6 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
 
     if (StaticMesh != nullptr)
     {
-        if (!StaticMesh->bAllowCPUAccess)
-        {
-            UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: StaticMesh must AllowCPUAccess."));
-
-            return false;
-        }
-
         const int32 FileVersion = 1;
         TSharedRef<FJsonObject> JsonRootObject = MakeShareable(new FJsonObject);
         JsonRootObject->SetNumberField("FileVersion", FileVersion);
@@ -42,6 +35,9 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
             // Vertex format
             TArray<TSharedPtr<FJsonValue>> JsonVertexFormat;
             JsonRootObject->SetArrayField("VertexFormat", JsonVertexFormat);
+
+            // LODs
+            JsonRootObject->SetNumberField("LODCount", StaticMesh->RenderData->LODResources.Num());
 
             int32 LODIndex = 0;
             TArray< TSharedPtr<FJsonValue> > JsonLODDatas;
