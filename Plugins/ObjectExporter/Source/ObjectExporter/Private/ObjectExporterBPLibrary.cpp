@@ -13,8 +13,16 @@ UObjectExporterBPLibrary::UObjectExporterBPLibrary(const FObjectInitializer& Obj
 
 }
 
-bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, const FString& FilePath)
+bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, const FString& FullFilePathName)
 {
+    FText OutError;
+    if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
+    {
+        UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: FullFilePathName is not valid. %s"), *OutError.ToString());
+
+        return false;
+    }
+
     if (StaticMesh != nullptr)
     {
         if (!StaticMesh->bAllowCPUAccess)
@@ -45,6 +53,9 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
                 // Vertex data
                 TArray<TSharedPtr<FJsonValue>> JsonVertices;
                 const FPositionVertexBuffer& VertexBuffer = CurLOD.VertexBuffers.PositionVertexBuffer;
+
+                JsonLODSingle->SetNumberField("VertexCount", VertexBuffer.GetNumVertices());
+
                 for (uint32 iVertex = 0; iVertex < VertexBuffer.GetNumVertices(); iVertex++)
                 {
                     const FVector& Position = VertexBuffer.VertexPosition(iVertex);
@@ -59,15 +70,19 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
                 JsonLODSingle->SetArrayField("Vertices", JsonVertices);
 
                 // Index data
+                TArray<TSharedPtr<FJsonValue>> JsonIndices;
                 FIndexArrayView Indices = CurLOD.IndexBuffer.GetArrayView();
+
+                JsonLODSingle->SetNumberField("IndexCount", Indices.Num());
+
                 for (int32 iIndex = 0; iIndex < Indices.Num(); iIndex++)
                 {
                     TSharedRef<FJsonObject> JsonIndex = MakeShareable(new FJsonObject);
                     JsonIndex->SetNumberField("index", Indices[iIndex]);
 
-                    JsonVertices.Emplace(MakeShareable(new FJsonValueObject(JsonIndex)));
+                    JsonIndices.Emplace(MakeShareable(new FJsonValueObject(JsonIndex)));
                 }
-                JsonLODSingle->SetArrayField("Indices", JsonVertices);
+                JsonLODSingle->SetArrayField("Indices", JsonIndices);
 
                 JsonLODDatas.Emplace(MakeShareable(new FJsonValueObject(JsonLODSingle)));
 
@@ -79,7 +94,7 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
             TSharedRef<TJsonWriter<>> JsonWriter = TJsonWriterFactory<>::Create(&JsonContent, 0);
             if (FJsonSerializer::Serialize(JsonRootObject, JsonWriter))
             {
-                if (FFileHelper::SaveStringToFile(JsonContent, *FilePath))
+                if (FFileHelper::SaveStringToFile(JsonContent, *FullFilePathName))
                 {
                     UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportStaticMesh: success."));
                     
@@ -94,8 +109,16 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
     return false;
 }
 
-bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, const FString& FilePath)
+bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName)
 {
+    FText OutError;
+    if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
+    {
+        UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportCamera: FullFilePathName is not valid. %s"), *OutError.ToString());
+
+        return false;
+    }
+
     if (Camera != nullptr)
     {
         const int32 FileVersion = 1;
@@ -127,7 +150,7 @@ bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, cons
         TSharedRef<TJsonWriter<>> JsonWriter = TJsonWriterFactory<>::Create(&JsonContent, 0);
         if (FJsonSerializer::Serialize(JsonRootObject, JsonWriter))
         {
-            if (FFileHelper::SaveStringToFile(JsonContent, *FilePath))
+            if (FFileHelper::SaveStringToFile(JsonContent, *FullFilePathName))
             {
                 UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportCamera: success."));
 
