@@ -118,26 +118,33 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
             for (const FStaticMeshLODResources& CurLOD : StaticMesh->RenderData->LODResources)
             {
                 // Vertex data
-                const FPositionVertexBuffer& VertexBuffer = CurLOD.VertexBuffers.PositionVertexBuffer;
+                const FPositionVertexBuffer& PositionVertexBuffer = CurLOD.VertexBuffers.PositionVertexBuffer;
+                const FStaticMeshVertexBuffer& StaticMeshVertexBuffer = CurLOD.VertexBuffers.StaticMeshVertexBuffer;
+                int32 NumVertices = PositionVertexBuffer.GetNumVertices();
 
-                *FileWriter << VertexBuffer.GetNumVertices();
+                *FileWriter << NumVertices;
 
-                for (uint32 iVertex = 0; iVertex < VertexBuffer.GetNumVertices(); iVertex++)
+                for (uint32 iVertex = 0; iVertex < PositionVertexBuffer.GetNumVertices(); iVertex++)
                 {
-                    const FVector& Position = VertexBuffer.VertexPosition(iVertex);
+                    FVector Position = PositionVertexBuffer.VertexPosition(iVertex);
+                    FVector Normal = StaticMeshVertexBuffer.VertexTangentZ(iVertex);
+                    FVector2D UV = StaticMeshVertexBuffer.GetVertexUV(iVertex, 0);
 
                     *FileWriter << Position;
+                    *FileWriter << Normal;
+                    *FileWriter << UV;
                 }
 
                 // Index data
                 FIndexArrayView Indices = CurLOD.IndexBuffer.GetArrayView();
+                int32 NumIndices = Indices.Num();
 
-                *FileWriter << Indices.Num();
+                *FileWriter << NumIndices;
 
                 for (int32 iIndex = 0; iIndex < Indices.Num(); iIndex++)
                 {
-                    *FileWriter << Indices[iIndex];
-
+                    uint16 Index = Indices[iIndex];
+                    *FileWriter << Index;
                 }
 
                 //now save only lod 0
