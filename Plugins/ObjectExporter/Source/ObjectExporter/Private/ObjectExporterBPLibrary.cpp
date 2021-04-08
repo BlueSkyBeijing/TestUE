@@ -1,16 +1,26 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectExporterBPLibrary.h"
 #include "ObjectExporter.h"
 #include "Camera/CameraComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "LevelEditor.h"
+#include "LevelEditorViewport.h"
+#include "Camera/CameraActor.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/DirectionalLight.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Camera/CameraComponent.h"
 
 #define JSON_FILE_POSTFIX ".json"
-#define BINARY_FILE_POSTFIX ".stm"
+#define STATIC_MESH_BINARY_FILE_POSTFIX ".stm"
+#define MAP_BINARY_FILE_POSTFIX ".map"
 
 DECLARE_LOG_CATEGORY_CLASS(ObjectExporterBPLibraryLog, Log, All);
 
 UObjectExporterBPLibrary::UObjectExporterBPLibrary(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+    : Super(ObjectInitializer)
 {
 
 }
@@ -97,13 +107,13 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
                     if (FFileHelper::SaveStringToFile(JsonContent, *FullFilePathName))
                     {
                         UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportStaticMesh: success."));
-                    
+
                         return true;
                     }
                 }
             }
         }
-        else if (FullFilePathName.EndsWith(BINARY_FILE_POSTFIX))
+        else if (FullFilePathName.EndsWith(STATIC_MESH_BINARY_FILE_POSTFIX))
         {
             // Save to binary file
             IFileManager& FileManager = IFileManager::Get();
@@ -127,7 +137,8 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
                 for (uint32 iVertex = 0; iVertex < PositionVertexBuffer.GetNumVertices(); iVertex++)
                 {
                     FVector Position = PositionVertexBuffer.VertexPosition(iVertex);
-                    FVector Normal = StaticMeshVertexBuffer.VertexTangentZ(iVertex);
+                    FVector4 TangentZ = StaticMeshVertexBuffer.VertexTangentZ(iVertex);
+                    FVector Normal = FVector(TangentZ.X, TangentZ.Y, TangentZ.Z) * TangentZ.W;
                     FVector2D UV = StaticMeshVertexBuffer.GetVertexUV(iVertex, 0);
 
                     *FileWriter << Position;
@@ -217,3 +228,108 @@ bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, cons
     return false;
 }
 
+bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FString& FullFilePathName)
+{
+    if (!IsValid(WorldContextObject) || !IsValid(WorldContextObject->GetWorld()))
+    {
+        return false;
+    }
+
+    if (FullFilePathName.EndsWith(MAP_BINARY_FILE_POSTFIX))
+    {
+        // Save to binary file
+        IFileManager& FileManager = IFileManager::Get();
+        FArchive* FileWriter = FileManager.CreateFileWriter(*FullFilePathName);
+        if (nullptr == FileWriter)
+        {
+            UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportMap: CreateFileWriter failed."));
+
+            return false;
+        }
+
+        UWorld* World = WorldContextObject->GetWorld();
+
+        TArray<AActor*> AllCameraActors;
+        UGameplayStatics::GetAllActorsOfClass(World, ACameraActor::StaticClass(), AllCameraActors);
+        int32 CameraCount = AllCameraActors.Num();
+
+        *FileWriter << CameraCount;
+
+        for (AActor* Actor : AllCameraActors)
+        {
+            UCameraComponent* Component = Cast<UCameraComponent>(Actor->GetComponentByClass(UCameraComponent::StaticClass()));
+            check(Component != nullptr);
+            auto Transform = Component->GetComponentToWorld();
+            auto Location = Transform.GetLocation();
+            auto Rotation = Transform.GetRotation();
+            auto Rotator = Rotation.Rotator();
+            auto Direction = Rotation.Vector();
+            auto Target = Location + Direction * 100.0f;
+            auto FOV = Component->FieldOfView;
+            auto AspectRatio = Component->AspectRatio;
+
+            *FileWriter << Location;
+            *FileWriter << Target;
+            *FileWriter << FOV;
+            *FileWriter << AspectRatio;
+        }
+
+        TArray<AActor*> AllDirectionalLightActors;
+        UGameplayStatics::GetAllActorsOfClass(World, ADirectionalLight::StaticClass(), AllDirectionalLightActors);
+        int32 DirectionalLightCount = AllDirectionalLightActors.Num();
+
+        *FileWriter << DirectionalLightCount;
+
+        for (AActor* Actor : AllDirectionalLightActors)
+        {
+            UDirectionalLightComponent* Component = Cast<UDirectionalLightComponent>(Actor->GetComponentByClass(UDirectionalLightComponent::StaticClass()));
+            check(Component != nullptr);
+            auto Transform = Component->GetComponentToWorld();
+            auto Location = Transform.GetLocation();
+            auto Rotation = Transform.GetRotation();
+            auto Rotator = Rotation.Rotator();
+            auto Direction = Rotation.Vector();
+            auto Color = Component->LightColor;
+            auto Intensity = Component->Intensity;
+
+            *FileWriter << Direction;
+            *FileWriter << Color;
+            *FileWriter << Intensity;
+        }
+
+        TArray<AActor*> AllStaticMeshActors;
+        UGameplayStatics::GetAllActorsOfClass(World, AStaticMeshActor::StaticClass(), AllStaticMeshActors);
+        int32 StaticMeshActorCount = AllStaticMeshActors.Num();
+
+        *FileWriter << StaticMeshActorCount;
+
+        for (AActor* Actor : AllStaticMeshActors)
+        {
+            UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Actor->GetComponentByClass(UStaticMeshComponent::StaticClass()));
+            check(Component != nullptr);
+            auto Transform = Component->GetComponentToWorld();
+            auto Location = Transform.GetLocation();
+            auto Rotation = Transform.GetRotation();
+            auto Rotator = Rotation.Rotator();
+            auto Direction = Rotation.Vector();
+            auto ResourceName = Component->GetStaticMesh()->GetPathName();
+
+            *FileWriter << Location;
+            *FileWriter << Rotation;
+            *FileWriter << ResourceName;
+        }
+
+        FileWriter->Close();
+        delete FileWriter;
+        FileWriter = nullptr;
+
+        UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportMap: success."));
+
+        return true;
+
+    }
+
+    UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportMap: failed."));
+
+    return false;
+}
