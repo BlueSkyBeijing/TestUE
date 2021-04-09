@@ -12,6 +12,8 @@
 #include "Components/DirectionalLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Camera/CameraComponent.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
 
 #define JSON_FILE_POSTFIX ".json"
 #define STATIC_MESH_BINARY_FILE_POSTFIX ".stm"
@@ -317,6 +319,17 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             *FileWriter << Location;
             *FileWriter << Rotation;
             *FileWriter << ResourceName;
+
+            TArray<UTexture*> MaterialTextures;
+            Component->GetUsedTextures(MaterialTextures, EMaterialQualityLevel::Num);
+            FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+            for (UTexture* Texture : MaterialTextures)
+            {
+                FString SavePath = FPaths::ProjectSavedDir() + "Bin/Textures";
+                TArray<UObject*> ObjectsToExport;
+                ObjectsToExport.Add(Texture);
+                AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
+            }
         }
 
         FileWriter->Close();
