@@ -291,11 +291,11 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             auto Rotation = Transform.GetRotation();
             auto Rotator = Rotation.Rotator();
             auto Direction = Rotation.Vector();
-            auto Color = Component->LightColor;
+            auto Color = FLinearColor::FromSRGBColor(Component->LightColor);
             auto Intensity = Component->Intensity;
 
-            *FileWriter << Direction;
             *FileWriter << Color;
+            *FileWriter << Direction;
             *FileWriter << Intensity;
         }
 
@@ -314,10 +314,13 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             auto Rotation = Transform.GetRotation();
             auto Rotator = Rotation.Rotator();
             auto Direction = Rotation.Vector();
-            auto ResourceName = Component->GetStaticMesh()->GetPathName();
+            auto ResourceFullName = Component->GetStaticMesh()->GetPathName();
 
-            *FileWriter << Location;
+            FString ResourcePath, ResourceName;
+            ResourceFullName.Split(FString("."), &ResourcePath, &ResourceName);
+
             *FileWriter << Rotation;
+            *FileWriter << Location;
             *FileWriter << ResourceName;
 
             TArray<UTexture*> MaterialTextures;
@@ -330,6 +333,9 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
                 ObjectsToExport.Add(Texture);
                 AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
             }
+
+            FString SaveStaticMeshPath = FPaths::ProjectSavedDir() + "Bin/StaticMesh/" + ResourceName + ".stm";
+            ExportStaticMesh(Component->GetStaticMesh(), SaveStaticMeshPath);
         }
 
         FileWriter->Close();
