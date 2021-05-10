@@ -27,13 +27,16 @@ class UObjectExporterBPLibrary : public UBlueprintFunctionLibrary
 {
     GENERATED_UCLASS_BODY()
 
-        UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Satic Mesh", Keywords = "Export Satic Mesh"), Category = "UObjectExporter")
-        static bool ExportStaticMesh(const UStaticMesh* StaticMesh, const FString& FullFilePathName);
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Satic Mesh", Keywords = "Export Satic Mesh"), Category = "UObjectExporter")
+    static bool ExportStaticMesh(const UStaticMesh* StaticMesh, const FString& FullFilePathName);
+
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Skeletal Mesh", Keywords = "Export Skeletal Mesh"), Category = "UObjectExporter")
+    static bool ExportSkeletonalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName);
 
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Camera", Keywords = "Export Camera"), Category = "UObjectExporter")
-        static bool ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName);
+    static bool ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName);
 
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Map", Keywords = "Export Map"), Category = "UObjectExporter")
-        static bool ExportMap(UObject* WorldContextObject, const FString& FullFilePathName);
+    static bool ExportMap(UObject* WorldContextObject, const FString& FullFilePathName);
 
 };

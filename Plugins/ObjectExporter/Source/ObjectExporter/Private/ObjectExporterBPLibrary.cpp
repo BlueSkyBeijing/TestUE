@@ -11,12 +11,19 @@
 #include "Engine/DirectionalLight.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Rendering/SkeletalMeshModel.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 #define JSON_FILE_POSTFIX ".json"
 #define STATIC_MESH_BINARY_FILE_POSTFIX ".stm"
+#define SKELETAL_MESH_BINARY_FILE_POSTFIX ".skm"
 #define MAP_BINARY_FILE_POSTFIX ".map"
 
 DECLARE_LOG_CATEGORY_CLASS(ObjectExporterBPLibraryLog, Log, All);
@@ -173,6 +180,86 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
     UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: failed."));
 
     return false;
+}
+
+bool UObjectExporterBPLibrary::ExportSkeletonalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName)
+{
+    FText OutError;
+    if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
+    {
+        UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportSkeletonalMesh: FullFilePathName is not valid. %s"), *OutError.ToString());
+
+        return false;
+    }
+
+    if (SkeletalMesh != nullptr)
+    {
+        if (FullFilePathName.EndsWith(JSON_FILE_POSTFIX))
+        {
+            const int32 FileVersion = 1;
+            TSharedRef<FJsonObject> JsonRootObject = MakeShareable(new FJsonObject);
+            JsonRootObject->SetNumberField("FileVersion", FileVersion);
+        }
+        else if (FullFilePathName.EndsWith(SKELETAL_MESH_BINARY_FILE_POSTFIX))
+        {
+            // Save to binary file
+            IFileManager& FileManager = IFileManager::Get();
+            FArchive* FileWriter = FileManager.CreateFileWriter(*FullFilePathName);
+            if (nullptr == FileWriter)
+            {
+                UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportSkeletonalMesh: CreateFileWriter failed."));
+
+                return false;
+            }
+
+            for (const FSkeletalMeshLODRenderData& CurLOD : SkeletalMesh->GetResourceForRendering()->LODRenderData)
+            {
+                // Vertex data
+                const FPositionVertexBuffer& PositionVertexBuffer = CurLOD.StaticVertexBuffers.PositionVertexBuffer;
+                const FStaticMeshVertexBuffer& StaticMeshVertexBuffer = CurLOD.StaticVertexBuffers.StaticMeshVertexBuffer;
+                int32 NumVertices = PositionVertexBuffer.GetNumVertices();
+
+                *FileWriter << NumVertices;
+
+                for (uint32 iVertex = 0; iVertex < PositionVertexBuffer.GetNumVertices(); iVertex++)
+                {
+                    FVector Position = PositionVertexBuffer.VertexPosition(iVertex);
+                    FVector4 TangentZ = StaticMeshVertexBuffer.VertexTangentZ(iVertex);
+                    FVector Normal = FVector(TangentZ.X, TangentZ.Y, TangentZ.Z) * TangentZ.W;
+                    FVector2D UV = StaticMeshVertexBuffer.GetVertexUV(iVertex, 0);
+
+                    *FileWriter << Position;
+                    *FileWriter << Normal;
+                    *FileWriter << UV;
+                }
+
+                // Index data
+                TArray<uint32> Indices;
+                CurLOD.MultiSizeIndexContainer.GetIndexBuffer(Indices);
+                int32 NumIndices = Indices.Num();
+
+                *FileWriter << NumIndices;
+
+                for (int32 iIndex = 0; iIndex < Indices.Num(); iIndex++)
+                {
+                    uint16 Index = Indices[iIndex];
+                    *FileWriter << Index;
+                }
+
+                //now save only lod 0
+                break;
+            }
+
+            FileWriter->Close();
+            delete FileWriter;
+            FileWriter = nullptr;
+        }
+    }
+
+    UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: failed."));
+
+    return false;
+
 }
 
 bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName)
@@ -334,9 +421,49 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
                 AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
             }
 
-            FString SaveStaticMeshPath = FPaths::ProjectSavedDir() + "Bin/StaticMesh/" + ResourceName + ".stm";
+            FString SaveStaticMeshPath = FPaths::ProjectSavedDir() + "Bin/StaticMesh/" + ResourceName + STATIC_MESH_BINARY_FILE_POSTFIX;
             ExportStaticMesh(Component->GetStaticMesh(), SaveStaticMeshPath);
         }
+
+        TArray<AActor*> AllSkeletalMeshActors;
+        UGameplayStatics::GetAllActorsOfClass(World, ASkeletalMeshActor::StaticClass(), AllSkeletalMeshActors);
+        int32 SkeletalMeshActorCount = AllSkeletalMeshActors.Num();
+
+        *FileWriter << SkeletalMeshActorCount;
+
+        for (AActor* Actor : AllSkeletalMeshActors)
+        {
+            USkeletalMeshComponent* Component = Cast<USkeletalMeshComponent>(Actor->GetComponentByClass(USkeletalMeshComponent::StaticClass()));
+            check(Component != nullptr);
+            auto Transform = Component->GetComponentToWorld();
+            auto Location = Transform.GetLocation();
+            auto Rotation = Transform.GetRotation();
+            auto Rotator = Rotation.Rotator();
+            auto Direction = Rotation.Vector();
+            auto ResourceFullName = Component->SkeletalMesh->GetPathName();
+
+            FString ResourcePath, ResourceName;
+            ResourceFullName.Split(FString("."), &ResourcePath, &ResourceName);
+
+            *FileWriter << Rotation;
+            *FileWriter << Location;
+            *FileWriter << ResourceName;
+
+            TArray<UTexture*> MaterialTextures;
+            Component->GetUsedTextures(MaterialTextures, EMaterialQualityLevel::Num);
+            FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+            for (UTexture* Texture : MaterialTextures)
+            {
+                FString SavePath = FPaths::ProjectSavedDir() + "Bin/Textures";
+                TArray<UObject*> ObjectsToExport;
+                ObjectsToExport.Add(Texture);
+                AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
+            }
+
+            FString SaveSkeletalMeshPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/" + ResourceName + SKELETAL_MESH_BINARY_FILE_POSTFIX;
+            ExportSkeletonalMesh(Component->SkeletalMesh, SaveSkeletalMeshPath);
+        }
+
 
         FileWriter->Close();
         delete FileWriter;
