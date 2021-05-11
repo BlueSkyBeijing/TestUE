@@ -31,7 +31,13 @@ class UObjectExporterBPLibrary : public UBlueprintFunctionLibrary
     static bool ExportStaticMesh(const UStaticMesh* StaticMesh, const FString& FullFilePathName);
 
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Skeletal Mesh", Keywords = "Export Skeletal Mesh"), Category = "UObjectExporter")
-    static bool ExportSkeletonalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName);
+    static bool ExportSkeletalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName);
+
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Skeleton", Keywords = "Export Skeleton"), Category = "UObjectExporter")
+    static bool ExportSkeleton(const USkeleton* Skeleton, const FString& FullFilePathName);
+
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export AnimSequence", Keywords = "Export AnimSequence"), Category = "UObjectExporter")
+    static bool ExportAnimSequence(const UAnimSequence* AnimSequence, const FString& FullFilePathName);
 
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Camera", Keywords = "Export Camera"), Category = "UObjectExporter")
     static bool ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName);

@@ -24,6 +24,8 @@
 #define JSON_FILE_POSTFIX ".json"
 #define STATIC_MESH_BINARY_FILE_POSTFIX ".stm"
 #define SKELETAL_MESH_BINARY_FILE_POSTFIX ".skm"
+#define SKELETON_BINARY_FILE_POSTFIX ".skt"
+#define ANIMSEQUENCE_BINARY_FILE_POSTFIX ".anm"
 #define MAP_BINARY_FILE_POSTFIX ".map"
 
 DECLARE_LOG_CATEGORY_CLASS(ObjectExporterBPLibraryLog, Log, All);
@@ -182,7 +184,7 @@ bool UObjectExporterBPLibrary::ExportStaticMesh(const UStaticMesh* StaticMesh, c
     return false;
 }
 
-bool UObjectExporterBPLibrary::ExportSkeletonalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName)
+bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalMesh, const FString& FullFilePathName)
 {
     FText OutError;
     if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
@@ -225,7 +227,7 @@ bool UObjectExporterBPLibrary::ExportSkeletonalMesh(const USkeletalMesh* Skeleta
                 {
                     FVector Position = PositionVertexBuffer.VertexPosition(iVertex);
                     FVector4 TangentZ = StaticMeshVertexBuffer.VertexTangentZ(iVertex);
-                    FVector Normal = FVector(TangentZ.X, TangentZ.Y, TangentZ.Z) * TangentZ.W;
+                    FVector Normal = FVector(TangentZ.X, TangentZ.Y, TangentZ.Z);
                     FVector2D UV = StaticMeshVertexBuffer.GetVertexUV(iVertex, 0);
 
                     *FileWriter << Position;
@@ -253,6 +255,7 @@ bool UObjectExporterBPLibrary::ExportSkeletonalMesh(const USkeletalMesh* Skeleta
             FileWriter->Close();
             delete FileWriter;
             FileWriter = nullptr;
+
         }
     }
 
@@ -261,6 +264,125 @@ bool UObjectExporterBPLibrary::ExportSkeletonalMesh(const USkeletalMesh* Skeleta
     return false;
 
 }
+
+bool UObjectExporterBPLibrary::ExportSkeleton(const USkeleton* Skeleton, const FString& FullFilePathName)
+{
+    FText OutError;
+    if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
+    {
+        UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportSkeleton: FullFilePathName is not valid. %s"), *OutError.ToString());
+
+        return false;
+    }
+
+    if (Skeleton != nullptr)
+    {
+        if (FullFilePathName.EndsWith(JSON_FILE_POSTFIX))
+        {
+            const int32 FileVersion = 1;
+            TSharedRef<FJsonObject> JsonRootObject = MakeShareable(new FJsonObject);
+            JsonRootObject->SetNumberField("FileVersion", FileVersion);
+        }
+        else if (FullFilePathName.EndsWith(SKELETON_BINARY_FILE_POSTFIX))
+        {
+            // Save to binary file
+            IFileManager& FileManager = IFileManager::Get();
+            FArchive* FileWriter = FileManager.CreateFileWriter(*FullFilePathName);
+            if (nullptr == FileWriter)
+            {
+                UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportSkeleton: CreateFileWriter failed."));
+
+                return false;
+            }
+
+            const TArray<FMeshBoneInfo>& BoneInfos = Skeleton->GetReferenceSkeleton().GetRawRefBoneInfo();
+            const TArray<FTransform>& BonePose = Skeleton->GetReferenceSkeleton().GetRawRefBonePose();
+
+            int32 NumBoneInfos = BoneInfos.Num();
+            int32 NumPosBones = BonePose.Num();
+
+            *FileWriter << NumBoneInfos;
+            for (FMeshBoneInfo Boneinfo : BoneInfos)
+            {
+                *FileWriter << Boneinfo.Name;
+                *FileWriter << Boneinfo.ParentIndex;
+            }
+
+            *FileWriter << NumPosBones;
+            for (FTransform BoneTransform : BonePose)
+            {
+                *FileWriter << BoneTransform;
+            }
+
+            FileWriter->Close();
+            delete FileWriter;
+            FileWriter = nullptr;
+
+        }
+    }
+
+    UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: failed."));
+
+    return false;
+
+}
+
+
+bool UObjectExporterBPLibrary::ExportAnimSequence(const UAnimSequence* AnimSequence, const FString& FullFilePathName)
+{
+    FText OutError;
+    if (!FFileHelper::IsFilenameValidForSaving(FullFilePathName, OutError))
+    {
+        UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportAnimSequence: FullFilePathName is not valid. %s"), *OutError.ToString());
+
+        return false;
+    }
+
+    if (AnimSequence != nullptr)
+    {
+        if (FullFilePathName.EndsWith(JSON_FILE_POSTFIX))
+        {
+            const int32 FileVersion = 1;
+            TSharedRef<FJsonObject> JsonRootObject = MakeShareable(new FJsonObject);
+            JsonRootObject->SetNumberField("FileVersion", FileVersion);
+        }
+        else if (FullFilePathName.EndsWith(ANIMSEQUENCE_BINARY_FILE_POSTFIX))
+        {
+            // Save to binary file
+            IFileManager& FileManager = IFileManager::Get();
+            FArchive* FileWriter = FileManager.CreateFileWriter(*FullFilePathName);
+            if (nullptr == FileWriter)
+            {
+                UE_LOG(ObjectExporterBPLibraryLog, Log, TEXT("ExportAnimSequence: CreateFileWriter failed."));
+
+                return false;
+            }
+     
+            const TArray<FRawAnimSequenceTrack>& AnimationData = AnimSequence->GetRawAnimationData();
+
+            int32 NumberOfFrames = AnimationData.Num();
+            *FileWriter << NumberOfFrames;
+
+            for (FRawAnimSequenceTrack SequenceTrack : AnimationData)
+            {
+                *FileWriter << SequenceTrack.ScaleKeys;
+                *FileWriter << SequenceTrack.RotKeys;
+                *FileWriter << SequenceTrack.PosKeys;
+            }
+
+            FileWriter->Close();
+            delete FileWriter;
+            FileWriter = nullptr;
+
+        }
+    }
+
+    UE_LOG(ObjectExporterBPLibraryLog, Warning, TEXT("ExportStaticMesh: failed."));
+
+    return false;
+
+}
+
 
 bool UObjectExporterBPLibrary::ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName)
 {
@@ -461,7 +583,13 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             }
 
             FString SaveSkeletalMeshPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/" + ResourceName + SKELETAL_MESH_BINARY_FILE_POSTFIX;
-            ExportSkeletonalMesh(Component->SkeletalMesh, SaveSkeletalMeshPath);
+            ExportSkeletalMesh(Component->SkeletalMesh, SaveSkeletalMeshPath);
+
+            FString SaveSkeletonPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/Skeleton/" + ResourceName + SKELETON_BINARY_FILE_POSTFIX;
+            ExportSkeleton(Component->SkeletalMesh->Skeleton, SaveSkeletonPath);
+ 
+            FString SaveAnimSequencePath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/AnimSequence/" + ResourceName + ANIMSEQUENCE_BINARY_FILE_POSTFIX;
+            ExportAnimSequence(Cast<UAnimSequence>(Component->AnimationData.AnimToPlay), SaveAnimSequencePath);
         }
 
 
