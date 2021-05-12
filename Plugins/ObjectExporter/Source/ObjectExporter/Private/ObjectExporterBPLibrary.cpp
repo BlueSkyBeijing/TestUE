@@ -219,6 +219,8 @@ bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalM
                 // Vertex data
                 const FPositionVertexBuffer& PositionVertexBuffer = CurLOD.StaticVertexBuffers.PositionVertexBuffer;
                 const FStaticMeshVertexBuffer& StaticMeshVertexBuffer = CurLOD.StaticVertexBuffers.StaticMeshVertexBuffer;
+                const FSkinWeightInfo* WeightInfos = CurLOD.SkinWeightVertexBuffer.GetDataVertexBuffer()->GetWeightData();
+
                 int32 NumVertices = PositionVertexBuffer.GetNumVertices();
 
                 *FileWriter << NumVertices;
@@ -233,6 +235,25 @@ bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalM
                     *FileWriter << Position;
                     *FileWriter << Normal;
                     *FileWriter << UV;
+
+                    FBoneIndexType BoneIndex0 = WeightInfos->InfluenceBones[0];
+                    *FileWriter << BoneIndex0;
+                    FBoneIndexType BoneIndex1 = WeightInfos->InfluenceBones[1];
+                    *FileWriter << BoneIndex1;
+                    FBoneIndexType BoneIndex2 = WeightInfos->InfluenceBones[2];
+                    *FileWriter << BoneIndex2;
+                    FBoneIndexType BoneIndex3 = WeightInfos->InfluenceBones[3];
+                    *FileWriter << BoneIndex3;
+
+                    uint8 BoneWeight0 = WeightInfos->InfluenceWeights[0];
+                    *FileWriter << BoneWeight0;
+                    uint8 BoneWeight1 = WeightInfos->InfluenceWeights[1];
+                    *FileWriter << BoneWeight1;
+                    uint8 BoneWeight2 = WeightInfos->InfluenceWeights[2];
+                    *FileWriter << BoneWeight2;
+                    uint8 BoneWeight3 = WeightInfos->InfluenceWeights[3];
+                    *FileWriter << BoneWeight3;
+
                 }
 
                 // Index data
