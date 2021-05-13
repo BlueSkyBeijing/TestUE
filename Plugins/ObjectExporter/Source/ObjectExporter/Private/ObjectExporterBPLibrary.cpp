@@ -618,10 +618,15 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             FString SaveSkeletalMeshPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/" + ResourceName + SKELETAL_MESH_BINARY_FILE_POSTFIX;
             ExportSkeletalMesh(Component->SkeletalMesh, SaveSkeletalMeshPath);
 
-            FString SaveSkeletonPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/Skeleton/" + ResourceName + SKELETON_BINARY_FILE_POSTFIX;
+            auto SkeletonFullName = Component->SkeletalMesh->Skeleton->GetPathName();
+
+            FString SkeletonPath, SkeletonName;
+            SkeletonFullName.Split(FString("."), &SkeletonPath, &SkeletonName);
+
+            FString SaveSkeletonPath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/Skeleton/" + SkeletonName + SKELETON_BINARY_FILE_POSTFIX;
             ExportSkeleton(Component->SkeletalMesh->Skeleton, SaveSkeletonPath);
  
-            FString SaveAnimSequencePath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/AnimSequence/" + ResourceName + ANIMSEQUENCE_BINARY_FILE_POSTFIX;
+            FString SaveAnimSequencePath = FPaths::ProjectSavedDir() + "Bin/SkeletalMesh/Animation/" + AnimationName + ANIMSEQUENCE_BINARY_FILE_POSTFIX;
             ExportAnimSequence(Cast<UAnimSequence>(Component->AnimationData.AnimToPlay), SaveAnimSequencePath);
         }
 
