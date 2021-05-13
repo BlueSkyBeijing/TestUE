@@ -268,6 +268,13 @@ bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalM
                     uint16 Index = Indices[iIndex];
                     *FileWriter << Index;
                 }
+                
+                auto ResourceFullName = SkeletalMesh->Skeleton->GetPathName();
+
+                FString ResourcePath, ResourceName;
+                ResourceFullName.Split(FString("."), &ResourcePath, &ResourceName);
+
+                *FileWriter << ResourceName;
 
                 //now save only lod 0
                 break;
@@ -584,13 +591,18 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             auto Rotator = Rotation.Rotator();
             auto Direction = Rotation.Vector();
             auto ResourceFullName = Component->SkeletalMesh->GetPathName();
+            auto AnimationFullName = Component->AnimationData.AnimToPlay->GetPathName();
 
             FString ResourcePath, ResourceName;
             ResourceFullName.Split(FString("."), &ResourcePath, &ResourceName);
 
+            FString AnimationPath, AnimationName;
+            AnimationFullName.Split(FString("."), &AnimationPath, &AnimationName);
+
             *FileWriter << Rotation;
             *FileWriter << Location;
             *FileWriter << ResourceName;
+            *FileWriter << AnimationName;
 
             TArray<UTexture*> MaterialTextures;
             Component->GetUsedTextures(MaterialTextures, EMaterialQualityLevel::Num);
