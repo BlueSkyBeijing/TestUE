@@ -219,7 +219,8 @@ bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalM
                 // Vertex data
                 const FPositionVertexBuffer& PositionVertexBuffer = CurLOD.StaticVertexBuffers.PositionVertexBuffer;
                 const FStaticMeshVertexBuffer& StaticMeshVertexBuffer = CurLOD.StaticVertexBuffers.StaticMeshVertexBuffer;
-                const FSkinWeightInfo* WeightInfos = CurLOD.SkinWeightVertexBuffer.GetDataVertexBuffer()->GetWeightData();
+                TArray<FSkinWeightInfo> WeightInfos;
+                CurLOD.SkinWeightVertexBuffer.GetSkinWeights(WeightInfos);
 
                 int32 NumVertices = PositionVertexBuffer.GetNumVertices();
 
@@ -236,22 +237,22 @@ bool UObjectExporterBPLibrary::ExportSkeletalMesh(const USkeletalMesh* SkeletalM
                     *FileWriter << Normal;
                     *FileWriter << UV;
 
-                    FBoneIndexType BoneIndex0 = WeightInfos->InfluenceBones[0];
+                    FBoneIndexType BoneIndex0 = WeightInfos[iVertex].InfluenceBones[0];
                     *FileWriter << BoneIndex0;
-                    FBoneIndexType BoneIndex1 = WeightInfos->InfluenceBones[1];
+                    FBoneIndexType BoneIndex1 = WeightInfos[iVertex].InfluenceBones[1];
                     *FileWriter << BoneIndex1;
-                    FBoneIndexType BoneIndex2 = WeightInfos->InfluenceBones[2];
+                    FBoneIndexType BoneIndex2 = WeightInfos[iVertex].InfluenceBones[2];
                     *FileWriter << BoneIndex2;
-                    FBoneIndexType BoneIndex3 = WeightInfos->InfluenceBones[3];
+                    FBoneIndexType BoneIndex3 = WeightInfos[iVertex].InfluenceBones[3];
                     *FileWriter << BoneIndex3;
 
-                    uint8 BoneWeight0 = WeightInfos->InfluenceWeights[0];
+                    float BoneWeight0 = WeightInfos[iVertex].InfluenceWeights[0] / 255.0f;
                     *FileWriter << BoneWeight0;
-                    uint8 BoneWeight1 = WeightInfos->InfluenceWeights[1];
+                    float BoneWeight1 = WeightInfos[iVertex].InfluenceWeights[1] / 255.0f;
                     *FileWriter << BoneWeight1;
-                    uint8 BoneWeight2 = WeightInfos->InfluenceWeights[2];
+                    float BoneWeight2 = WeightInfos[iVertex].InfluenceWeights[2] / 255.0f;
                     *FileWriter << BoneWeight2;
-                    uint8 BoneWeight3 = WeightInfos->InfluenceWeights[3];
+                    float BoneWeight3 = WeightInfos[iVertex].InfluenceWeights[3] / 255.0f;
                     *FileWriter << BoneWeight3;
 
                 }
@@ -339,7 +340,12 @@ bool UObjectExporterBPLibrary::ExportSkeleton(const USkeleton* Skeleton, const F
             *FileWriter << NumPosBones;
             for (FTransform BoneTransform : BonePose)
             {
-                *FileWriter << BoneTransform;
+                FQuat Rot = BoneTransform.GetRotation();
+                FVector Tran = BoneTransform.GetTranslation();
+                FVector Scale = BoneTransform.GetScale3D();
+                *FileWriter << Rot;
+                *FileWriter << Tran;
+                *FileWriter << Scale;
             }
 
             FileWriter->Close();
@@ -387,15 +393,25 @@ bool UObjectExporterBPLibrary::ExportAnimSequence(const UAnimSequence* AnimSeque
             }
      
             const TArray<FRawAnimSequenceTrack>& AnimationData = AnimSequence->GetRawAnimationData();
+            const TArray<FTrackToSkeletonMap>& TrackToSkeMap = AnimSequence->GetRawTrackToSkeletonMapTable();
 
-            int32 NumberOfFrames = AnimationData.Num();
+            int32 NumberOfFrames = AnimSequence->GetNumberOfFrames();
             *FileWriter << NumberOfFrames;
 
+            float SequenceLength = AnimSequence->SequenceLength;
+            *FileWriter << SequenceLength;
+
+            int32 TrackIndex = 0;
             for (FRawAnimSequenceTrack SequenceTrack : AnimationData)
             {
-                *FileWriter << SequenceTrack.ScaleKeys;
-                *FileWriter << SequenceTrack.RotKeys;
+                int32 BoneIndex = TrackToSkeMap[TrackIndex].BoneTreeIndex;
+                *FileWriter << BoneIndex;
+
                 *FileWriter << SequenceTrack.PosKeys;
+                *FileWriter << SequenceTrack.RotKeys;
+                *FileWriter << SequenceTrack.ScaleKeys;
+
+                TrackIndex++;
             }
 
             FileWriter->Close();
