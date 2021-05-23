@@ -42,6 +42,9 @@ class UObjectExporterBPLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Camera", Keywords = "Export Camera"), Category = "UObjectExporter")
     static bool ExportCamera(const UCameraComponent* Camera, const FString& FullFilePathName);
 
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export MaterialInstace", Keywords = "Export MaterialInstace"), Category = "UObjectExporter")
+    static bool ExportMaterialInstance(const UMaterialInstance* MaterialInstace, const FString& FullFilePathName);
+
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Export Map", Keywords = "Export Map"), Category = "UObjectExporter")
     static bool ExportMap(UObject* WorldContextObject, const FString& FullFilePathName);
 
