@@ -9,7 +9,9 @@
 #include "Camera/CameraActor.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
 #include "Components/DirectionalLightComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
@@ -527,6 +529,8 @@ bool UObjectExporterBPLibrary::ExportMaterialInstance(const UMaterialInstance* M
             TArray<FMaterialParameterInfo> OutParameterInfo;
             TArray<FGuid> Guids;
             MaterialInstace->GetAllTextureParameterInfo(OutParameterInfo, Guids);
+            int32 BlendMode = (int32)MaterialInstace->BlendMode;
+            *FileWriter << BlendMode;
             for (const FMaterialParameterInfo& ParameterInfo : OutParameterInfo)
             {
                 UTexture* Texture = nullptr;
@@ -544,6 +548,12 @@ bool UObjectExporterBPLibrary::ExportMaterialInstance(const UMaterialInstance* M
                     TArray<UObject*> ObjectsToExport;
                     ObjectsToExport.Add(Texture);
                     AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
+                }
+
+                float Opacity = 1.0f;
+                if (MaterialInstace->GetScalarParameterValue(ParameterInfo, Opacity))
+                {
+                    *FileWriter << Opacity;
                 }
             }
 
@@ -627,6 +637,31 @@ bool UObjectExporterBPLibrary::ExportMap(UObject* WorldContextObject, const FStr
             *FileWriter << Direction;
             *FileWriter << Intensity;
         }
+
+        TArray<AActor*> AllPointLightActors;
+        UGameplayStatics::GetAllActorsOfClass(World, APointLight::StaticClass(), AllPointLightActors);
+        int32 PointLightCount = AllPointLightActors.Num();
+
+        *FileWriter << PointLightCount;
+
+        for (AActor* Actor : AllPointLightActors)
+        {
+            UPointLightComponent* Component = Cast<UPointLightComponent>(Actor->GetComponentByClass(UPointLightComponent::StaticClass()));
+            check(Component != nullptr);
+            auto Transform = Component->GetComponentToWorld();
+            auto Location = Transform.GetLocation();
+            auto AttenuationRadius = Component->AttenuationRadius;
+            auto LightFalloffExponent = Component->LightFalloffExponent;
+            auto Color = FLinearColor::FromSRGBColor(Component->LightColor);
+            auto Intensity = Component->Intensity;
+
+            *FileWriter << Color;
+            *FileWriter << Location;
+            *FileWriter << Intensity;
+            *FileWriter << AttenuationRadius;
+            *FileWriter << LightFalloffExponent;
+        }
+
 
         TArray<AActor*> AllStaticMeshActors;
         UGameplayStatics::GetAllActorsOfClass(World, AStaticMeshActor::StaticClass(), AllStaticMeshActors);
