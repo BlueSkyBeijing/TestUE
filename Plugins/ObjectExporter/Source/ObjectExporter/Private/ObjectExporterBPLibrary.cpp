@@ -526,12 +526,12 @@ bool UObjectExporterBPLibrary::ExportMaterialInstance(const UMaterialInstance* M
             }
 
             FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
-            TArray<FMaterialParameterInfo> OutParameterInfo;
-            TArray<FGuid> Guids;
-            MaterialInstace->GetAllTextureParameterInfo(OutParameterInfo, Guids);
+            TArray<FMaterialParameterInfo> OutTextureParameterInfo;
+            TArray<FGuid> GuidsTexture;
+            MaterialInstace->GetAllTextureParameterInfo(OutTextureParameterInfo, GuidsTexture);
             int32 BlendMode = (int32)MaterialInstace->BlendMode;
             *FileWriter << BlendMode;
-            for (const FMaterialParameterInfo& ParameterInfo : OutParameterInfo)
+            for (const FMaterialParameterInfo& ParameterInfo : OutTextureParameterInfo)
             {
                 UTexture* Texture = nullptr;
                 MaterialInstace->GetTextureParameterValue(ParameterInfo, Texture);
@@ -549,7 +549,13 @@ bool UObjectExporterBPLibrary::ExportMaterialInstance(const UMaterialInstance* M
                     ObjectsToExport.Add(Texture);
                     AssetToolsModule.Get().ExportAssets(ObjectsToExport, *SavePath);
                 }
+            }
 
+            TArray<FMaterialParameterInfo> OutScalarParameterInfo;
+            TArray<FGuid> GuidsScalar;
+            MaterialInstace->GetAllScalarParameterInfo(OutScalarParameterInfo, GuidsScalar);
+            for (const FMaterialParameterInfo& ParameterInfo : OutScalarParameterInfo)
+            {
                 float Opacity = 1.0f;
                 if (MaterialInstace->GetScalarParameterValue(ParameterInfo, Opacity))
                 {
